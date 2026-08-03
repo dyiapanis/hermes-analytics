@@ -1,0 +1,29 @@
+# Pricing Configuration — user-configurable pricing source control
+#
+# This file lets you override the default pricing resolution behavior.
+# The plugin resolves indicative cost by trying sources in source_priority
+# order, stopping at the first that returns a price.
+#
+# To set your own rates for specific models, add them under overrides.
+# Overridden models get cost_status="actual" instead of "estimated".
+#
+# To change which sources are tried and in what order, edit source_priority.
+# Remove a source from the list to disable it entirely.
+
+# Source resolution order (first match wins)
+source_priority:
+  - override      # user-supplied rates below (highest priority)
+  - core          # agent.usage_pricing (OpenAI, Anthropic, Google, DeepSeek, Bedrock, Fireworks)
+  - openrouter    # OpenRouter API (cache-aware, fetched live, 1h cache)
+  - hf_router     # HF Router API (input/output only, no cache pricing)
+
+# User-supplied per-model rates (USD per million tokens)
+# Model names must match the keys in model_aliases.yaml (without :cloud suffix)
+# cache_read is optional — omit it to price cache at full input rate
+#
+# Example:
+#   kimi-k2.6:
+#     input: 0.55
+#     output: 3.20
+#     cache_read: 0.18
+overrides: {}

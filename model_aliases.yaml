@@ -1,0 +1,94 @@
+# Model Aliases — maps local deployment model names to canonical IDs
+# for indicative cost lookup via OpenRouter and Hugging Face Router APIs.
+#
+# OpenRouter is the preferred source (has cache_read pricing for most models).
+# HF Router is the fallback (input/output only, no cache pricing).
+#
+# The plugin tries core's agent.usage_pricing first for recognized providers,
+# then OpenRouter (via this alias map), then HF Router, then returns unknown.
+#
+# To refresh: fetch https://openrouter.ai/api/v1/models and
+# https://router.huggingface.co/v1/models, update IDs as needed.
+# Last refreshed: 2026-08-01
+
+deepseek-chat-v3.1:
+  openrouter: "deepseek/deepseek-chat-v3.1"
+  hf: "deepseek-ai/DeepSeek-V3.1"
+deepseek-v4-flash:
+  openrouter: "deepseek/deepseek-v4-flash"
+  hf: "deepseek-ai/DeepSeek-V4-Flash"
+deepseek-v4-pro:
+  openrouter: "deepseek/deepseek-v4-pro"
+  hf: "deepseek-ai/DeepSeek-V4-Pro"
+gemini-3-flash-preview:
+  openrouter: "google/gemini-3-flash-preview"
+  hf: null
+gemma4:26b:
+  openrouter: "google/gemma-4-26b-a4b-it"
+  hf: "google/gemma-4-26B-A4B-it"
+gemma4:31b:
+  openrouter: "google/gemma-4-31b-it"
+  hf: "google/gemma-4-31B-it"
+glm-4.7:
+  openrouter: "z-ai/glm-4.7"
+  hf: "zai-org/GLM-4.7"
+glm-5:
+  openrouter: "z-ai/glm-5"
+  hf: "zai-org/GLM-5"
+glm-5.1:
+  openrouter: "z-ai/glm-5.1"
+  hf: "zai-org/GLM-5.1"
+glm-5.2:
+  openrouter: "z-ai/glm-5.2"
+  hf: "zai-org/GLM-5.2"
+gpt-oss:120b:
+  openrouter: "openai/gpt-oss-120b"
+  hf: "openai/gpt-oss-120b"
+gpt-oss:20b:
+  openrouter: "openai/gpt-oss-20b"
+  hf: "openai/gpt-oss-20b"
+kimi-k2.5:
+  openrouter: "moonshotai/kimi-k2.5"
+  hf: "moonshotai/Kimi-K2.5"
+kimi-k2.6:
+  openrouter: "moonshotai/kimi-k2.6"
+  hf: "moonshotai/Kimi-K2.6"
+kimi-k2.7-code:
+  openrouter: "moonshotai/kimi-k2.7-code"
+  hf: "moonshotai/Kimi-K2.7-Code"
+kimi-k3:
+  openrouter: "moonshotai/kimi-k3"
+  hf: "moonshotai/Kimi-K3"
+minimax-m2.1:
+  openrouter: "minimax/minimax-m2.1"
+  hf: "MiniMaxAI/MiniMax-M2.1"
+minimax-m2.5:
+  openrouter: "minimax/minimax-m2.5"
+  hf: "MiniMaxAI/MiniMax-M2.5"
+minimax-m2.7:
+  openrouter: "minimax/minimax-m2.7"
+  hf: "MiniMaxAI/MiniMax-M2.7"
+minimax-m3:
+  openrouter: "minimax/minimax-m3"
+  hf: "MiniMaxAI/MiniMax-M3"
+mistral-large-3:
+  openrouter: "mistralai/mistral-large-2512"
+  hf: null
+nemotron-3-super:
+  openrouter: "nvidia/nemotron-3-super-120b-a12b"
+  hf: null
+nemotron-3-ultra:
+  openrouter: "nvidia/nemotron-3-ultra-550b-a55b"
+  hf: "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4"
+qwen3-coder:
+  openrouter: "qwen/qwen3-coder"
+  hf: "Qwen/Qwen3-Coder-Next"
+qwen3.5:
+  openrouter: "qwen/qwen3.5-397b-a17b"
+  hf: "Qwen/Qwen3.5-9B"
+qwen3.5-plus:
+  openrouter: "qwen/qwen3.5-plus-20260420"
+  hf: null
+qwen3.6-plus:
+  openrouter: "qwen/qwen3.6-plus"
+  hf: null

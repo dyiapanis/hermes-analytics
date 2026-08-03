@@ -1,0 +1,30 @@
+name: hermes-analytics
+version: "0.1.0"
+description: "Hermes Analytics — SQLite analytics for Hermes Agent. Captures LLM calls, tool usage, context pressure, session summaries, kanban events, approval events, API request metrics, inbound message volume, and verification quality per profile to ~/.hermes/profiles/<profile>/analytics.db. Built against the Hermes observer v1 contract."
+author: dyiapanis
+pip_dependencies:
+  - pyyaml
+config:
+  retention_days: 365
+hooks:
+  - on_session_start
+  - on_session_end
+  - on_session_finalize
+  - on_session_reset
+  - pre_tool_call
+  - post_tool_call
+  - pre_llm_call
+  - pre_api_request
+  - post_api_request
+  - api_request_error
+  - subagent_start
+  - subagent_stop
+  - pre_gateway_dispatch
+  - pre_verify
+  - pre_approval_request
+  - post_approval_response
+  - kanban_task_claimed
+  - kanban_task_completed
+  - kanban_task_blocked
+  # NOTE: post_llm_call deliberately NOT registered — LLM calls recorded
+  # exclusively via post_api_request to avoid double-counting.
