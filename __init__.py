@@ -130,7 +130,7 @@ def _resolve_alias(model: str) -> tuple[Optional[str], Optional[str]]:
 
     # Try stripping suffixes iteratively
     candidates = [key]
-    for sep in [":cloud", "-cloud", ":675b"]:
+    for sep in [":cloud", "-cloud", ":675b", ":0731", ":preview", ":397b"]:
         new_candidates = []
         for c in candidates:
             stripped = c.replace(sep, "")
@@ -197,7 +197,7 @@ def _resolve_override(model: str, overrides: dict) -> Optional[dict]:
         return entry
     # Try suffix stripping (same logic as _resolve_alias)
     candidates = [key]
-    for sep in [":cloud", "-cloud", ":675b"]:
+    for sep in [":cloud", "-cloud", ":675b", ":0731", ":preview", ":397b"]:
         new_candidates = []
         for c in candidates:
             stripped = c.replace(sep, "")
@@ -1238,19 +1238,6 @@ def on_session_end(*, session_id: str = "", interrupted: bool = False,
     )
     _STATE.pop(session_id, None)
 
-
-# ── Subagent hooks (fail-open no-ops — core doesn't fire these yet) ────────
-
-@_fail_open
-def on_subagent_start(**kwargs) -> None:
-    pass
-
-
-@_fail_open
-def on_subagent_stop(**kwargs) -> None:
-    pass
-
-
 # ── Pre-API-request: request-side analytics ────────────────────────────────
 
 @_fail_open
@@ -1821,8 +1808,7 @@ def register(ctx) -> None:
     ctx.register_hook("api_request_error", api_request_error)
     ctx.register_hook("pre_approval_request", on_pre_approval_request)
     ctx.register_hook("post_approval_response", on_post_approval_response)
-    ctx.register_hook("subagent_start", on_subagent_start)
-    ctx.register_hook("subagent_stop", on_subagent_stop)
+    # subagent_start/subagent_stop removed — core doesn't fire these yet (no-ops)
     ctx.register_hook("pre_gateway_dispatch", on_pre_gateway_dispatch)
     ctx.register_hook("pre_verify", on_pre_verify)
     ctx.register_hook("kanban_task_claimed", on_kanban_task_claimed)

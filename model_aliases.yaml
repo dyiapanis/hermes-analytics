@@ -9,12 +9,18 @@
 #
 # To refresh: fetch https://openrouter.ai/api/v1/models and
 # https://router.huggingface.co/v1/models, update IDs as needed.
-# Last refreshed: 2026-08-01
+# Last refreshed: 2026-08-07
 
 deepseek-chat-v3.1:
   openrouter: "deepseek/deepseek-chat-v3.1"
   hf: "deepseek-ai/DeepSeek-V3.1"
 deepseek-v4-flash:
+  openrouter: "deepseek/deepseek-v4-flash"
+  hf: "deepseek-ai/DeepSeek-V4-Flash"
+deepseek-v4-flash:0731:
+  openrouter: "deepseek/deepseek-v4-flash-0731"
+  hf: "deepseek-ai/DeepSeek-V4-Flash-0731"
+deepseek-v4-flash:preview:
   openrouter: "deepseek/deepseek-v4-flash"
   hf: "deepseek-ai/DeepSeek-V4-Flash"
 deepseek-v4-pro:
