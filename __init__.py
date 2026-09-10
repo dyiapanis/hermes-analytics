@@ -43,15 +43,15 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in _sys.path:
     _sys.path.insert(0, _HERE)
 
-from db import _SHUTDOWN, _start_retention_timer, _db, _get_db_path
-from pricing import _load_pricing_config
-from hooks import (api_request_error, on_kanban_task_blocked,
+from .db import _SHUTDOWN, _start_retention_timer, _db, _get_db_path
+from .pricing import _load_pricing_config
+from .hooks import (api_request_error, on_kanban_task_blocked,
                   on_kanban_task_claimed, on_kanban_task_completed,
                   on_session_end, on_session_finalize, on_session_reset,
                   on_session_start, post_api_request, on_post_approval_response,
                   post_tool_call, pre_api_request, on_pre_gateway_dispatch,
                   pre_llm_call, pre_tool_call, on_pre_verify, on_pre_approval_request)
-from tools import (_connect_read, _handle_query, _handle_digest,
+from .tools import (_connect_read, _handle_query, _handle_digest,
                     _handle_fleet_report)
 
 
