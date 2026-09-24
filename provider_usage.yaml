@@ -1,0 +1,21 @@
+# Provider usage registry for _quota_section() in tools.py.
+# Keyed by provider id; fields:
+#   label      display name
+#   usage_url  endpoint that returns the usage JSON (Bearer api_key auth)
+#   api_key    secret name resolved via _secret()
+#   extractor  tools.py function normalizing the payload for the renderer
+#   note       optional short suffix rendered after the label
+#   enabled    optional bool, default true
+ollama:
+  label: Ollama Cloud
+  usage_url: https://ollama.com/api/usage
+  api_key: OLLAMA_API_KEY
+  extractor: fraction_windows
+  note: flat-rate, % = GPU time unit
+
+opencode:
+  label: OpenCode Go
+  usage_url: https://opencode.ai/zen/go/v1/usage
+  api_key: OPENCODE_GO_API_KEY
+  extractor: percent_windows
+  note: metered workspace

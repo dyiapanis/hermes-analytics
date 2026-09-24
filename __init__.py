@@ -30,7 +30,10 @@ Key features:
 """
 from __future__ import annotations
 
+import csv
+import json
 import logging
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +46,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in _sys.path:
     _sys.path.insert(0, _HERE)
 
-from .db import _SHUTDOWN, _start_retention_timer, _db, _get_db_path
-from .pricing import _load_pricing_config
+from .db import _PLUGIN_VERSION, _SHUTDOWN, _start_retention_timer, _db, _get_db_path
+from .pricing import _invalidate_pricing_config, _load_pricing_config
 from .hooks import (api_request_error, on_kanban_task_blocked,
                   on_kanban_task_claimed, on_kanban_task_completed,
                   on_session_end, on_session_finalize, on_session_reset,
@@ -52,7 +55,7 @@ from .hooks import (api_request_error, on_kanban_task_blocked,
                   post_tool_call, pre_api_request, on_pre_gateway_dispatch,
                   pre_llm_call, pre_tool_call, on_pre_verify, on_pre_approval_request)
 from .tools import (_connect_read, _handle_query, _handle_digest,
-                    _handle_fleet_report)
+                    _handle_fleet_report, _handle_fleet_report_enriched)
 
 
 # ── Registration ───────────────────────────────────────────────────────────
@@ -66,7 +69,6 @@ def _handle_pricing_config(args: dict, **kwargs) -> str:
     - action="remove_override": remove a model override
     - action="reorder_sources": set source priority order
     """
-    global _PRICING_CONFIG
     action = args.get("action", "get")
     config_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "pricing_config.yaml"
@@ -97,7 +99,7 @@ def _handle_pricing_config(args: dict, **kwargs) -> str:
             overrides[model] = entry
             with open(config_path, "w") as f:
                 _yaml_module.dump(data, f, default_flow_style=False)
-            _PRICING_CONFIG = None  # Force reload
+            _invalidate_pricing_config()
             return json.dumps({"action": "set_override", "model": model, "rates": entry,
                                 "message": f"Override set for {model}. Reloaded config."})
 
@@ -110,7 +112,7 @@ def _handle_pricing_config(args: dict, **kwargs) -> str:
                 del overrides[model]
                 with open(config_path, "w") as f:
                     _yaml_module.dump(data, f, default_flow_style=False)
-                _PRICING_CONFIG = None
+                _invalidate_pricing_config()
                 return json.dumps({"action": "remove_override", "model": model,
                                     "message": f"Removed override for {model}."})
             return json.dumps({"action": "remove_override", "model": model,
@@ -127,7 +129,7 @@ def _handle_pricing_config(args: dict, **kwargs) -> str:
             data["source_priority"] = new_order
             with open(config_path, "w") as f:
                 _yaml_module.dump(data, f, default_flow_style=False)
-            _PRICING_CONFIG = None
+            _invalidate_pricing_config()
             return json.dumps({"action": "reorder_sources", "source_priority": new_order,
                                 "message": "Source priority updated."})
 
@@ -216,7 +218,7 @@ def register(ctx) -> None:
     ctx.register_tool(
         name="analytics_fleet_report",
         toolset="hermes-analytics",
-        schema={
+        schema={"type": "object", "parameters": {
             "type": "object",
             "properties": {
                 "days": {
@@ -224,23 +226,29 @@ def register(ctx) -> None:
                     "description": "Number of days to look back (default: 7).",
                     "default": 7,
                 },
+                "format": {
+                    "type": "string",
+                    "enum": ["json", "markdown"],
+                    "description": "'markdown' renders Matrix-friendly output with live provider quotas; default 'json'.",
+                    "default": "json",
+                },
             },
-        },
-        handler=_handle_fleet_report,
+        }},
+        handler=_handle_fleet_report_enriched,
         emoji="📊",
         description=(
             "Get a fleet-wide analytics summary across all agent profiles. "
-            "Returns per-agent LLM calls, tool calls, token counts, cost, "
-            "context pressure, and session counts as structured JSON. "
-            "Use when the user asks for fleet analytics, fleet health, "
-            "or a cross-agent overview."
+            "Per-agent LLM calls, tool counts, tokens, cost, context pressure, sessions — "
+            "plus live provider quotas (config-driven via provider_usage.yaml) "
+            "with per-model usage % and visual bars, optimized for Matrix markdown. "
+            "Pass format='markdown' for rich Matrix-friendly output; omit for JSON."
         ),
     )
 
     ctx.register_tool(
         name="analytics_digest",
         toolset="hermes-analytics",
-        schema={
+        schema={"type": "object", "parameters": {
             "type": "object",
             "properties": {
                 "profile": {
@@ -254,7 +262,7 @@ def register(ctx) -> None:
                     "default": 7,
                 },
             },
-        },
+        }},
         handler=_handle_digest,
         emoji="📋",
         description=(
@@ -268,14 +276,18 @@ def register(ctx) -> None:
     ctx.register_tool(
         name="analytics_query",
         toolset="hermes-analytics",
-        schema={
+        schema={"type": "object", "parameters": {
             "type": "object",
             "properties": {
                 "query_type": {
                     "type": "string",
                     "description": "Type of query to run.",
                     "enum": ["tools", "cost", "sessions", "duration", "platforms",
-                             "latency", "health", "efficiency", "models", "cost_sources"],
+                             "latency", "health", "efficiency", "models", "cost_sources", "sql"],
+                },
+                "sql": {
+                    "type": "string",
+                    "description": "Raw SELECT-only SQL to run against the profile's analytics DB (single statement; a LIMIT is appended if absent). Required when query_type is sql.",
                 },
                 "profile": {
                     "type": "string",
@@ -289,7 +301,7 @@ def register(ctx) -> None:
                 },
             },
             "required": ["query_type"],
-        },
+        }},
         handler=_handle_query,
         emoji="🔍",
         description=(
@@ -302,7 +314,7 @@ def register(ctx) -> None:
     ctx.register_tool(
         name="analytics_pricing_config",
         toolset="hermes-analytics",
-        schema={
+        schema={"type": "object", "parameters": {
             "type": "object",
             "properties": {
                 "action": {
@@ -337,7 +349,7 @@ def register(ctx) -> None:
                     "description": "Ordered list of pricing sources. Valid: override, core, openrouter, hf_router. For reorder_sources.",
                 },
             },
-        },
+        }},
         handler=_handle_pricing_config,
         emoji="💰",
         description=(
@@ -351,7 +363,7 @@ def register(ctx) -> None:
     ctx.register_tool(
         name="analytics_export",
         toolset="hermes-analytics",
-        schema={
+        schema={"type": "object", "parameters": {
             "type": "object",
             "properties": {
                 "table": {
@@ -383,7 +395,7 @@ def register(ctx) -> None:
                 },
             },
             "required": ["table"],
-        },
+        }},
         handler=_handle_export,
         emoji="📤",
         description=(
@@ -394,6 +406,6 @@ def register(ctx) -> None:
         ),
     )
 
-    print(f"[hermes-analytics] Registered {len(hooks_registered)} hooks + 5 read-path tools (SQLite v0.1.0)")
+    print(f"[hermes-analytics] Registered {len(hooks_registered)} hooks + 5 read-path tools (SQLite {_PLUGIN_VERSION})")
 
 

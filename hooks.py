@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 from .db import (_enqueue, _enqueue_raw, _flush_sync, _maybe_retain,
-                 _update_session, _args_hash, _extract_exit_code, _CTX_DEDUP_S)
+                 _update_session, _args_hash, _extract_exit_code, _CTX_DEDUP_S,
+                 _state, _ctx_dedup_lock, _STATE, _last_ctx_key, _last_ctx_ts)
 from .pricing import _compute_cost, _extract_usage, _fail_open, _resolve_context_length
 
 

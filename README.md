@@ -1,7 +1,5 @@
 # Hermes Analytics
 
-<sup>Pre-release (v0.1.0) — not yet publicly released. API may change.</sup>
-
 SQLite analytics plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent). Captures LLM calls, tool usage, context pressure, session summaries, kanban events, approval events, API request metrics, inbound message volume, and verification quality per profile.
 
 ## Features
@@ -75,13 +73,21 @@ ANALYTICS_RETENTION_DAYS=90
 ANALYTICS_CONTEXT_LENGTH=128000
 ```
 
+## Provider usage quotas
+
+`analytics_fleet_report` renders live quota bars for any provider listed in `provider_usage.yaml`.
+
+Each entry supports: `label`, `usage_url`, `api_key`, `extractor`, `note`, `enabled`.
+
+Two built-in extractors: `fraction_windows` (usage fraction of a rolling window) and `percent_windows` (percentage used per window). Adding a provider is one YAML entry if its usage API matches a built-in extractor's shape, or one small function in `tools.py` if not. See `test_quota.py` for extractor tests.
+
 ## Tools
 
 | Tool | Description |
 |------|-------------|
-| `analytics_fleet_report` 📊 | Fleet-wide summary across all profiles |
+| `analytics_fleet_report` 📊 | Fleet-wide summary across all profiles, with live provider quota bars (`format='markdown'`) |
 | `analytics_digest` 📋 | Per-profile deep dive (models, tools, context, trends) |
-| `analytics_query` 🔍 | Targeted single-query access (10 query types) |
+| `analytics_query` 🔍 | Targeted single-query access (10 query types + raw `sql` mode, read-only SELECT) |
 | `analytics_pricing_config` 💰 | Read/write pricing configuration |
 | `analytics_export` 📤 | Export raw rows to CSV or JSON |
 

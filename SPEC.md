@@ -1,6 +1,6 @@
 # Hermes Analytics Plugin Specification
 
-**Version:** 0.1.0
+**Version:** 2.1.0
 **Engine:** SQLite (WAL mode)
 **Schema version:** 1.0
 
@@ -12,6 +12,21 @@ connection (WAL mode, `check_same_thread=False`). All session-thread code paths
 thread batches and flushes every 0.25s.
 
 Read-path tools open fresh read-only connections per query.
+
+## Module Map
+
+Since v2.1.0 the single flat file is split into 5 modules plus two config/test
+files, all at the repo root:
+
+| Module | Responsibility |
+|--------|----------------|
+| `db.py` | Schema, `_db()` connection factory, writer thread, enqueue/flush |
+| `hooks.py` | The 19 hook handlers; capture logic for all event tables |
+| `pricing.py` | Three-tier cost resolution, pricing config read/write |
+| `tools.py` | Read-path tools, provider-usage registry and quota rendering |
+| `__init__.py` | Plugin entry: hook registration, banner, wiring |
+| `provider_usage.yaml` | Config-driven provider-usage registry (quota bars) |
+| `test_quota.py` | Self-check for the quota extractors |
 
 ## Tables
 
@@ -62,3 +77,8 @@ the actual cost, bypassing all tiers.
 | `ANALYTICS_PROFILES` | Comma-separated fleet discovery override |
 | `ANALYTICS_RETENTION_DAYS` | Retention period override |
 | `ANALYTICS_CONTEXT_LENGTH` | Context length override |
+
+## Changelog
+
+- **2.1.0** — modular layout (5 modules); fixed `_PLUGIN_VERSION` NameError on fresh DB init; fixed pricing-config cache invalidation across module boundary; universal config-driven provider-usage registry; `sql` query mode in `analytics_query`.
+- **0.1.0** — pre-release.

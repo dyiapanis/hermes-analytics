@@ -154,6 +154,13 @@ def _load_pricing_config() -> dict:
         return _PRICING_CONFIG
 
 
+def _invalidate_pricing_config() -> None:
+    """Drop the cached pricing config so the next load re-reads the YAML."""
+    global _PRICING_CONFIG
+    with _PRICING_CONFIG_LOCK:
+        _PRICING_CONFIG = None
+
+
 def _resolve_override(model: str, overrides: dict) -> Optional[dict]:
     """Look up user-supplied override rates for a model.
 

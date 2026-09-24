@@ -17,6 +17,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# Must stay in sync with plugin.yaml's version field.
+_PLUGIN_VERSION = "2.1.0"
+
 
 # ── Per-profile DB path ────────────────────────────────────────────────────
 

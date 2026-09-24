@@ -26,6 +26,133 @@ import glob as _glob
 from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 
 
+def _secret(name: str) -> str:
+    import subprocess
+    try:
+        out = subprocess.run(["pass", "show", f"shared/{name}"],
+                             capture_output=True, text=True, timeout=5).stdout.strip()
+        if out:
+            return out
+    except Exception:
+        pass
+    return os.environ.get(name, "")
+
+
+def _fetch_provider_usage(url: str, key: str) -> dict:
+    import urllib.request
+    import json as _json
+    try:
+        r = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}", "User-Agent": "Mozilla/5.0"})
+        return _json.loads(urllib.request.urlopen(r, timeout=10).read())
+    except Exception as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def _bar(pct: float, width: int = 12) -> str:
+    n = min(width, max(0, round(pct / 100 * width)))
+    if n == 0:
+        return "⬜" * width
+    ch = "🟩" if pct < 50 else ("🟨" if pct < 80 else "🟥")
+    return ch * n + "⬜" * (width - n)
+
+
+def _gauge_icon(pct: float) -> str:
+    return "🟢" if pct < 50 else "🟡" if pct < 80 else "🔴"
+
+
+def _pct(v) -> float:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _load_registry() -> dict:
+    """Load provider_usage.yaml (keyed by provider id) from the plugin dir."""
+    import yaml
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "provider_usage.yaml")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        logger.warning("provider_usage.yaml unreadable: %s", exc)
+        return {}
+
+
+def _model_tuples(models) -> list:
+    """[(name, pct-of-total, request_count)] sorted by request_count desc."""
+    if not models:
+        return []
+    total = sum(int(m.get("request_count") or 0) for m in models) or 1
+    return [(m.get("name", "?"),
+             int(m.get("request_count") or 0) / total * 100,
+             int(m.get("request_count") or 0))
+            for m in sorted(models, key=lambda x: -(x.get("request_count") or 0))]
+
+
+def fraction_windows(data: dict) -> list:
+    """Ollama Cloud shape: limits.<scope>.usage is a fraction 0..1 with a
+    model breakdown (fractions of requests + request counts) → normalized
+    window dicts with pct scaled to 0..100."""
+    return [{"label": scope.title(), "pct": _pct(w.get("usage")) * 100,
+             "models": _model_tuples(w.get("models"))}
+            for scope, w in (data.get("limits") or {}).items()]
+
+
+def percent_windows(data: dict) -> list:
+    """OpenCode Go shape: usage.<scope>.percent is 0..100 (no model
+    breakdown in the current payload) → normalized window dicts."""
+    return [{"label": scope.title(), "pct": _pct(w.get("percent")),
+             "models": [], "status": w.get("status", "ok")}
+            for scope, w in (data.get("usage") or {}).items()]
+
+
+# Line format per extractor shape: "unit" = "N% of 1 unit · N% left" (.1f),
+# "metered" = "N% used · N% left" (.0f) + optional status tag.
+_WINDOW_STYLES = {"fraction_windows": "unit", "percent_windows": "metered"}
+
+
+def _quota_section() -> str:
+    """Render live provider quota usage as Matrix-friendly markdown."""
+    out = ["### Provider Quotas", ""]
+    errors = []
+    for pid, entry in (_load_registry() or {}).items():
+        if not isinstance(entry, dict) or not entry.get("enabled", True):
+            continue
+        label = entry.get("label") or pid
+        key = _secret(entry["api_key"]) if entry.get("api_key") else ""
+        data = _fetch_provider_usage(entry["usage_url"], key) if key else {"error": "no key"}
+        extractor = globals().get(str(entry.get("extractor", "")))
+        windows = extractor(data) if callable(extractor) and "error" not in data else []
+        if "error" in data or not callable(extractor) or not windows:
+            errors.append(f"- **{label}**: unable to fetch ({data.get('error', 'no usage data')})")
+            continue
+        header = f"**{label}**"
+        if entry.get("note"):
+            header += f" *({entry['note']})*"
+        out.append(header)
+        style = _WINDOW_STYLES.get(str(entry.get("extractor")), "metered")
+        for w in windows:
+            pct = _pct(w.get("pct"))
+            if style == "unit":
+                used = pct / 100
+                remaining = max(0, 1 - used) if used <= 1 else 0
+                out.append(f"- {_gauge_icon(pct)} **{w['label']}:** {_bar(pct)} "
+                           f"**{pct:.1f}%** of 1 unit · {remaining*100:.1f}% left")
+            else:
+                status = w.get("status", "ok")
+                tag = f" — *{status}*" if status != "ok" else ""
+                out.append(f"- {_gauge_icon(pct)} **{w['label']}:** {_bar(pct)} "
+                           f"**{pct:.0f}%** used · **{100-pct:.0f}% left**{tag}")
+            md = "\n".join(f"- `{n}` — **{p:.1f}%** ({r:,} req)" for n, p, r in w.get("models") or [])
+            if md:
+                out.append(md)
+        out.append("")
+    out.extend(errors)
+    return "\n".join(out).rstrip()
+
+
 def _discover_profiles() -> list[str]:
     """Auto-discover all profiles with analytics DBs.
 
@@ -134,6 +261,24 @@ def _handle_fleet_report(args: dict, **kwargs) -> str:
             db.close()
 
     return json.dumps({"days": days, "agents": results}, default=str)
+
+
+def _handle_fleet_report_enriched(args: dict, **kwargs) -> str:
+    """Fleet analytics + live provider quotas, with an optional markdown render for Matrix."""
+    if args.get("format") == "markdown":
+        base = json.loads(_handle_fleet_report({"days": args.get("days", 7)}))
+        rows = ""
+        for a in base.get("agents", []):
+            if "profile" not in a or "llm_calls" not in a:
+                continue
+            rows += (f"- **{a['profile']}** — {a['llm_calls']:,} LLM · "
+                     f"{a['tool_calls']:,} tool ({a['tool_failures']} fail) · "
+                     f"{a['prompt_tokens']:,}+{a['completion_tokens']:,} tok · ${a['cost_usd']:.4f}\n")
+        return (f"## Fleet Analytics — last {base.get('days',7)}d\n\n"
+                + rows.rstrip()
+                + "\n\n" + _quota_section())
+    return json.dumps({"days": int(args.get("days", 7)),
+                       "agents": json.loads(_handle_fleet_report(args)).get("agents", [])}, default=str)
 
 
 def _handle_digest(args: dict, **kwargs) -> str:
